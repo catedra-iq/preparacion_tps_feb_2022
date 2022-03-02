@@ -4,20 +4,47 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+end
+
 # ╔═╡ 5d51726e-99c5-11ec-0361-f91469a7f5c4
-using CSV, Plots,GLM,DataFrames,OrderedCollections, LaTeXStrings, Printf,PGFPlotsX
+using CSV, Plots,GLM,DataFrames,OrderedCollections, LaTeXStrings, Printf,PGFPlotsX,PlutoUI
+
+# ╔═╡ 2f25f569-3013-40d4-93be-8f83a135aea2
+font = Plots.font(pointsize = 18)
 
 # ╔═╡ fc9c1654-f14e-4998-a60e-a56960724374
-pgfplotsx()
+pgfplotsx(xlabelfont =font,ylabelfont =font)
 
 # ╔═╡ c1b977fe-c68f-4166-8e03-72a1bf723372
 begin
 	df = CSV.File("cinetica_2022.csv") |> DataFrame
-	df."ln(a1)" = log.(df."a1")
-	df."ln(a2)" = log.(df."a2")
+	df."lna1" = log.(df."a1")
+	df."lna2" = log.(df."a2")
 	df."1/a1" = 1 ./(df."a1")
 	df."1/a2" = 1 ./(df."a2")	
 end
+
+# ╔═╡ ec2a10f9-3d56-43e1-8346-a49c88e49e89
+df."t"
+
+# ╔═╡ 5c6fa85f-d800-4152-b437-006ef2ca8e5f
+begin
+	dff = copy(df)
+	sl = @bind val Slider(df."t", show_value = :true, default = 600)
+	filter!( x -> x.t < val, dff)
+	md"Duracion de cinetica $sl minutos"
+end
+
+# ╔═╡ 5e6093f7-f145-452f-96de-a73939c8c0dc
+dff
 
 # ╔═╡ 3eadbc25-2aa8-42a0-a576-0325512219c6
 reg1 = lm(@formula(1/a1 ~ t), df) |> predict |> y -> Plots.plot(df.t, y)
@@ -27,7 +54,6 @@ dc = df[!,2:end];
 
 # ╔═╡ 0f7acce8-250c-4201-93a1-f9449312ee59
 begin
-	
 	dp = map(eachcol(dc), names(dc)) do col,names
 		println(typeof(col))
 		data = DataFrame(X = df."t", Y = col)
@@ -38,39 +64,48 @@ data = Dict(names => (r2 = r2 ,pred = predict) for (names,r2,predict) in dp)
 end
 
 # ╔═╡ 39e4be87-c3cd-4ba3-84fc-a824bbca2674
-l1 = ["a1","ln(a1)","1/a1"];l2 = ["a2","ln(a2)","1/a2"]
+l1 = ["a1","lna1","1/a1"];l2 = ["a2","lna2","1/a2"]
+
+# ╔═╡ 898a97c1-ee1b-468d-a8c1-6e68bf9865a8
+neq = Dict("a"=>L"Abs_{461}",
+	"lna"=>L"\ln{Abs_{461}}",
+	"1/a"=>L"1/Abs_{461}")
 
 # ╔═╡ c1c88c70-508a-4581-8b3f-65e7ec49246f
 begin
 	plots = []
-for str ∈ l1
+for (n,str) ∈ enumerate(l1)
 	Plots.scatter(df."t", df[!,str], label = "Experimental",yticks=:false,
 		right_margin = 4Plots.cm, 
 		# bottom_margin = .6Plots.cm, left_margin = 1Plots.cm
 	)
-	xlabel!(L"\lambda"*" (nm)")
-	ylabel!(str)
+	xlabel!(L"$\lambda$ (nm)")
+	ylabel!(neq[str[begin:end-1]])
+	title!("Cinetica de orden $(n-1)")
 	r2 = @sprintf "%0.3f" (data[str][:r2])
-	plot!(df."t", data[str][:pred], label = "Modelo lineal, "*L"r^2 = %$r2")|> p -> push!(plots, p)
+	plot!(df."t", data[str][:pred], label = L"Modelo lineal, $r^2 = %$r2$")|> p -> push!(plots, p)
 end
-plot(plots..., size = (1920,1080))
+x = plot(plots..., size = (1920,1080))
+x[:plot_title] = ("Equipo 1")
 savefig("grafico_equipo1")
 end
 
 # ╔═╡ 4eafd785-ef86-41aa-bad4-6b1948f04368
 begin
 	plots2 = []
-for str ∈ l2
+for (n,str) ∈ enumerate(l2)
 	Plots.scatter(df."t", df[!,str], label = "Experimental", yticks=:false, 
 		right_margin = 4Plots.cm
 		# bottom_margin = .6Plots.cm, left_margin = 1Plots.cm
 		)
-	xlabel!(L"\lambda"*" (nm)")
-	ylabel!(str)
+	xlabel!(L"$\lambda$ (nm)")
+	ylabel!(neq[str[begin:end-1]])
+	title!("Cinetica de orden $(n-1)")
 	r2 = @sprintf "%0.3f" (data[str][:r2])
-	plot!(df."t", data[str][:pred], label = "Modelo lineal, "*L"r^2 = %$r2")|> p2 -> push!(plots2, p2)
+	plot!(df."t", data[str][:pred], label = L"Modelo lineal, $r^2 = %$r2$")|> p2 -> push!(plots2, p2)
 end
 plot(plots2..., size = (1920,1080))
+x[:plot_title] = ("Equipo 2")
 savefig("grafico_equipo2")
 end
 
@@ -84,6 +119,7 @@ LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 PGFPlotsX = "8314cec4-20b6-5062-9cdb-752b83310925"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [compat]
@@ -94,6 +130,7 @@ LaTeXStrings = "~1.3.0"
 OrderedCollections = "~1.4.1"
 PGFPlotsX = "~1.4.1"
 Plots = "~1.25.12"
+PlutoUI = "~0.7.35"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -102,6 +139,12 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.7.1"
 manifest_format = "2.0"
+
+[[deps.AbstractPlutoDingetjes]]
+deps = ["Pkg"]
+git-tree-sha1 = "8eaf9f1b4921132a4cff3f36a1d9ba923b14a481"
+uuid = "6e696c72-6542-2067-7265-42206c756150"
+version = "1.1.4"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra"]
@@ -413,6 +456,23 @@ git-tree-sha1 = "65e4589030ef3c44d3b90bdc5aac462b4bb05567"
 uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
 version = "0.3.8"
 
+[[deps.Hyperscript]]
+deps = ["Test"]
+git-tree-sha1 = "8d511d5b81240fc8e6802386302675bdf47737b9"
+uuid = "47d2ed2b-36de-50cf-bf87-49c2cf4b8b91"
+version = "0.0.4"
+
+[[deps.HypertextLiteral]]
+git-tree-sha1 = "2b078b5a615c6c0396c77810d92ee8c6f470d238"
+uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
+version = "0.9.3"
+
+[[deps.IOCapture]]
+deps = ["Logging", "Random"]
+git-tree-sha1 = "f7be53659ab06ddc986428d3a9dcc95f6fa6705a"
+uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
+version = "0.2.2"
+
 [[deps.IniFile]]
 git-tree-sha1 = "f550e6e32074c939295eb5ea6de31849ac2c9625"
 uuid = "83e8ac13-25f8-5344-8a64-a9f2b223428f"
@@ -714,6 +774,12 @@ deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers"
 git-tree-sha1 = "d16070abde61120e01b4f30f6f398496582301d6"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 version = "1.25.12"
+
+[[deps.PlutoUI]]
+deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
+git-tree-sha1 = "85bf3e4bd279e405f91489ce518dedb1e32119cb"
+uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+version = "0.7.35"
 
 [[deps.PooledArrays]]
 deps = ["DataAPI", "Future"]
@@ -1174,12 +1240,17 @@ version = "0.9.1+5"
 
 # ╔═╡ Cell order:
 # ╠═5d51726e-99c5-11ec-0361-f91469a7f5c4
+# ╠═2f25f569-3013-40d4-93be-8f83a135aea2
 # ╠═fc9c1654-f14e-4998-a60e-a56960724374
 # ╠═c1b977fe-c68f-4166-8e03-72a1bf723372
+# ╠═ec2a10f9-3d56-43e1-8346-a49c88e49e89
+# ╠═5c6fa85f-d800-4152-b437-006ef2ca8e5f
+# ╠═5e6093f7-f145-452f-96de-a73939c8c0dc
 # ╠═3eadbc25-2aa8-42a0-a576-0325512219c6
 # ╠═2a698b13-0a31-4ca1-8fd1-83cabc4af32f
 # ╠═0f7acce8-250c-4201-93a1-f9449312ee59
 # ╠═39e4be87-c3cd-4ba3-84fc-a824bbca2674
+# ╠═898a97c1-ee1b-468d-a8c1-6e68bf9865a8
 # ╠═c1c88c70-508a-4581-8b3f-65e7ec49246f
 # ╠═4eafd785-ef86-41aa-bad4-6b1948f04368
 # ╟─00000000-0000-0000-0000-000000000001
